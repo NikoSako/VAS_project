@@ -7,15 +7,21 @@ from django.contrib.auth.decorators import login_required
 
 def login_view(request):
     if request.method == 'POST':
-        username = request.POST['username']
+        email = request.POST['email']
         password = request.POST['password']
 
-        user = authenticate(request, username = username, password = password)
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            messages.error(request, "No account with this email")
+            return redirect('login')
+
+        user = authenticate(request, username=user.username, password = password)
         if user is not None:
             login(request, user)
             return redirect('dashboard')
         else:
-            messages.error(request, "Invalid username or password")
+            messages.error(request, "Invalid email or password")
             return redirect('login')
         
     return render(request, 'login.html')
@@ -23,6 +29,7 @@ def login_view(request):
 def signup_view(request):
     if request.method == 'POST':
         username = request.POST['username']
+        email = request.POST['email']
         password = request.POST['password']
         password2 = request.POST['password2']
 
@@ -34,7 +41,12 @@ def signup_view(request):
             messages.error(request, "Username already taken")
             return redirect('signup')
         
-        user = User.objects.create_user(username=username, password=password)
+        if User.objects.filter(email = email).exists():
+            messages.error(request, "Email already in use")
+            return redirect('signup')
+        
+        user = User.objects.create_user(username=username, email=email,  password=password)
+        user.save()
         login(request, user)
         return redirect('dashboard')
 
