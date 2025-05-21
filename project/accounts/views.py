@@ -13,7 +13,7 @@ def login_view(request):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            messages.error(request, "No account with this email")
+            messages.error(request, "Няма акаунт с този имейл")
             return redirect('login')
 
         user = authenticate(request, username=user.username, password = password)
@@ -21,7 +21,7 @@ def login_view(request):
             login(request, user)
             return redirect('dashboard')
         else:
-            messages.error(request, "Invalid email or password")
+            messages.error(request, "Грешен имейл или парола")
             return redirect('login')
         
     return render(request, 'login.html')
@@ -34,15 +34,15 @@ def signup_view(request):
         password2 = request.POST['password2']
 
         if password != password2:
-            messages.error(request, "Passwords do not match")
+            messages.error(request, "Паролите не съвпадат")
             return redirect('signup')
         
         if  User.objects.filter(username = username).exists():
-            messages.error(request, "Username already taken")
+            messages.error(request, "Името вече съществува")
             return redirect('signup')
         
         if User.objects.filter(email = email).exists():
-            messages.error(request, "Email already in use")
+            messages.error(request, "Имейлът вече съществува")
             return redirect('signup')
         
         user = User.objects.create_user(username=username, email=email,  password=password)
