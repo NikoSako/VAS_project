@@ -27,7 +27,7 @@ GUTTER_SIZES = [
 
 PIPE_SIZES = [
     ('80', 'Ф80'),
-    ('80', 'Ф80'),
+    ('100', 'Ф100'),
 ]
 
 CORNER_TYPES = [
