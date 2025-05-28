@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order - VAS PRO</title>
+</head>
+<body>
+    <h1>Направи поръчка - VAS PRO</h1>
+    <p><a href="{% url 'dashboard' %}">Назад към Началното табло</a></p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Поръчай</button>
+    </form>
+</body>
+</html>

@@ -6,5 +6,18 @@
 <body>
     <h1>Добре дошъл, {{ request.user.username }}</h1>
     <p><a href="{% url 'logout' %}">Изход</a></p>
+
+    <h2>Твоите поръчки</h2>
+    {% if order %}
+        <ul>
+            {% for order in orders %}
+                <li><a href="{% url 'service_details' order.id %}">Поръчка №{{ order.id }} от {{ order.date_created }}</a></li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Няма намерени поръчки</p>
+    {% endif %}
+
+    <p><a href="{% url 'create_order' %}">Направи нова поръчка</a></p>
 </body>
 </html>
