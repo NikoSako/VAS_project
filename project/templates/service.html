@@ -4,11 +4,63 @@
     <title>Order - VAS PRO</title>
 </head>
 <body>
-    <h1>Направи поръчка - VAS PRO</h1>
+    <h1>Нова поръчка</h1>
     <p><a href="{% url 'dashboard' %}">Назад към Началното табло</a></p>
     <form method="post">
         {% csrf_token %}
-        {{ form.as_p }}
+        {{ form.non_field_errors }}
+
+        <div>
+            {{ form.is_gutter.label_tag }}<br>
+            {{ form.is_gutter }}
+        </div>
+
+        <div>
+            {{ form.colour_type.label_tag }}<br>
+            {{ form.colour_type }}
+        </div>
+
+        {% if form.fields.ral_code and form.ral_code %}
+            <div>
+                {{ form.ral_code.label_tag }}<br>
+                {{ form.ral_code }}
+            </div>
+        {% endif %}
+
+        <div>
+            {{ form.length_m.label_tag }}<br>
+            {{ form.length_m }}
+        </div>
+
+        <hr>
+
+        {% if form.initial.is_gutter %}
+            <h3>Ъгли за улуци (вътрешни/външни 90°)</h3>
+            <div>
+                <label for="angle_gutter_inner_90">Вътрешен 90°:</label>
+                <input type="number" name="angle_gutter_inner_90" min="0" value="0">
+            </div>
+            <div>
+                <label for="angle_gutter_outer_90">Външен 90°:</label>
+                <input type="number" name="angle_gutter_outer_90" min="0" value="0">
+            </div>
+        {% else %}
+            <h3>Кривки за водосточни тръби (45°, 72°, 90°)</h3>
+            <div>
+                <label for="angle_pipe_45">Кривка 45°</label>
+                <input type="number" name="angle_pipe_45" min="0" value="0">
+            </div>
+            <div>
+                <label for="angle_pipe_72">Кривка 72°</label>
+                <input type="number" name="angle_pipe_72" min="0" value="0">
+            </div>
+            <div>
+                <label for="angle_pipe_90">Кривка 90°</label>
+                <input type="number" name="angle_pipe_90" min="0" value="0">
+            </div>
+        {% endif %}
+
+        <br>
         <button type="submit">Поръчай</button>
     </form>
 </body>

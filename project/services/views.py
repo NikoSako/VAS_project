@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from datetime import date, timedelta
 from .forms import order_form
@@ -11,13 +11,12 @@ def next_available_date():
     last_order = Order.objects.aggregate(Max('end_date'))['end_date_max']
     start = date(2025, 7, 1) if not last_order else last_order + timedelta(days=1)
 
-    days = 0
-    while True:
-        test_days = [start + timedelta(days=i) for i in range(6)]
-        valid = [d for d in test_days if d.weekday() in WORKDAYS]
-        if len(valid) >= 4:
-            return valid[0], valid[3]
+    workdays = []
+    while len(workdays) < 4:
+        if start.weekday() in WORKDAYS:
+            workdays.append(start)
         start += timedelta(days=1)
+    return workdays[0], workdays[-1]
 
 def create_order(request):
     if request.method == 'POST':
@@ -29,20 +28,61 @@ def create_order(request):
             order.total_price = calculate_price(order, request.POST)
             order.save()
 
-            for i in range(1, 3):
+            order.angles.all().delete()
+
+            for i in range(1, 4):
                 angle_type = request.POST.get(f'angle_{i}_type')
                 angle_quantity = request.POST.get(f'angle_{i}_quantity')
-                if angle_type and angle_quantity:
+                if angle_type and angle_quantity and int(angle_quantity) > 0:
                     Angle.objects.create(order = order, type = angle_type, quantity = int(angle_quantity))
             return redirect('service_details', order_id = order.id)
     else:
         form = order_form()
-    return render(request, 'service.html', {'form': form})
+
+    angles_for_display = []
+    if request.method == 'POST':
+        is_gutter = request.POST.get('is_gutter')
+        if is_gutter == 'True':
+            angles_for_display = [
+                ('gutter_inner_90', 'Вътрешен ъгъл 90°'),
+                ('gutter_outer_90', 'Външен ъгъл 90°'),
+            ]
+        else:
+            angles_for_display = [
+                ('pipe_45', 'Кривка 45°'),
+                ('pipe_72', 'Кривка 72°'),
+                ('pipe_90', 'Кривка 90°'),
+            ]
+    else:
+        angles_for_display = [
+            ('gutter_inner_90', 'Вътрешен ъгъл 90°'),
+            ('gutter_outer_90', 'Външен ъгъл 90°'),
+        ]
+
+    return render(request, 'service.html', {'form': form, 'angles': angles_for_display})
 
 @login_required
 def service_details(request, order_id):
-    order = Order.objects.get(id = order_id, user = request.user)
+    order = get_object_or_404(Order, id = order_id, user = request.user)
     return render(request, 'service_details.html', {'order': order})
+
+def extract_angles(post_data):
+    angle_keys = [
+        'gutter_inner_90',
+        'gutter_outer_90',
+        'pipe_45',
+        'pipe_72',
+        'pipe_90',
+    ]
+    angles = {}
+    for key in angle_keys:
+        quantity = post_data.get(f'angle_{key}')
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            quantity = 0
+        angles[key] = quantity if quantity >= 0 else 0
+    return angles
 
 def calculate_price(order, post_data):
     base_price = {
@@ -66,8 +106,6 @@ def calculate_price(order, post_data):
         key = 'тръби'
 
     colour = order.colour_type
-    if colour == 'RAL':
-        colour = 'RAL'
 
     base = base_price[key][colour][order.size]
     price = order.length_m * base
@@ -79,20 +117,20 @@ def calculate_price(order, post_data):
         else:
             price += brackets * (1.20 if order.size == '5' else 1.60)
     else:
-        brackets = (order.length_m * 1)
-        price += brackets * {
+        brackets = order.length_m
+        bracket_prices =  {
             'поцинкована': 1.40,
             'RAL': 1.80,
             'титан-цинк': 4.80,
             'медна': 5.20 if order.size == '80' else 5.90,
-        }[order.colour_type]
+        }
+        price += brackets * bracket_prices[order.colour_type]
 
-    for i in range(1, 3):
-        type = post_data.get(f'angle_{i}_type')
-        quantity = int(post_data.get(f'angle_{i}_quantity') or 0)
+    angles = extract_angles(post_data)
+    for angle_type, quantity in angles.items():
         if quantity == 0:
             continue
-        if type.startswith('gutter'):
+        if angle_type.startswith('gutter'):
             price += quantity * 15.30
         else:
             price += quantity * 4.80
