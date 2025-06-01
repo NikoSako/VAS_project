@@ -32,19 +32,25 @@ class order_form(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+    
         self.fields['is_gutter'].widget = forms.Select(choices=[(True, 'Улуци'), (False, 'Водосточни тръби')])
-        self.fields['ral_code'].widget.attrs.update({'style': 'display:none;'})
 
-        is_gutter = True
-        if 'data' in kwargs:
-            is_gutter = kwargs['data'].get('is_gutter')
-            if is_gutter == 'True':
-                self.fields['size'].widget = forms.Select(choices=GUTTER_SIZES)
-            else:
-                self.fields['size'].widget = forms.Select(choices=PIPE_SIZES)
-        else:
+        is_gutter = self.initial.get('is_gutter', True)
+        if isinstance(is_gutter, str):
+            is_gutter = is_gutter == 'True'
+    
+        if is_gutter:
             self.fields['size'].widget = forms.Select(choices=GUTTER_SIZES)
+        else:
+            self.fields['size'].widget = forms.Select(choices=PIPE_SIZES)
+
+        colour = self.data.get('colour_type', '') if self.data else self.initial.get('colour_type', '')
+        if colour == 'RAL':
+            self.fields['ral_code'].choices = RAL_COLOURS
+            self.fields['ral_code'].widget.attrs.pop('style', None)
+        else:
+            self.fields['ral_code'].widget.attrs.update({'style': 'display:none;'})
+            self.fields['ral_code'].required = False
 
     def clean(self):
         cleaned_data = super().clean()

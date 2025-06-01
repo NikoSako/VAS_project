@@ -1,67 +1,143 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Order - VAS PRO</title>
+    <title>Order Details - VAS PRO</title>
 </head>
 <body>
-    <h1>Нова поръчка</h1>
-    <p><a href="{% url 'dashboard' %}">Назад към Началното табло</a></p>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
+<h2>Заяви услуга</h2>
 
-        <div>
-            {{ form.is_gutter.label_tag }}<br>
-            {{ form.is_gutter }}
-        </div>
+<form method="post" id="order-form">
+    {% csrf_token %}
 
-        <div>
-            {{ form.colour_type.label_tag }}<br>
-            {{ form.colour_type }}
-        </div>
+    <div>
+        <select name="is_gutter" id="id_is_gutter">
+            <option value="True">Улуци</option>
+            <option value="False">Водосточни тръби</option>
+        </select>
+    </div>
 
-        {% if form.fields.ral_code and form.ral_code %}
-            <div>
-                {{ form.ral_code.label_tag }}<br>
-                {{ form.ral_code }}
-            </div>
-        {% endif %}
+    <div>
+        <label for="{{ form.colour_type.id_for_label }}">Тип алуминий:</label>
+        {{ form.colour_type }}
+    </div>
 
-        <div>
-            {{ form.length_m.label_tag }}<br>
-            {{ form.length_m }}
-        </div>
+    <div>
+        <div id="ral-code-container" style="display:none;"></div>
+        <label for="{{ form.ral_code.id_for_label }}">RAL код:</label>
+        {{ form.ral_code }}
+    </div>
 
-        <hr>
+    <div>
+        <label for="{{ form.size.id_for_label }}">Размер:</label>
+        {{ form.size }}
+    </div>
 
-        {% if form.initial.is_gutter %}
-            <h3>Ъгли за улуци (вътрешни/външни 90°)</h3>
-            <div>
-                <label for="angle_gutter_inner_90">Вътрешен 90°:</label>
-                <input type="number" name="angle_gutter_inner_90" min="0" value="0">
-            </div>
-            <div>
-                <label for="angle_gutter_outer_90">Външен 90°:</label>
-                <input type="number" name="angle_gutter_outer_90" min="0" value="0">
-            </div>
-        {% else %}
-            <h3>Кривки за водосточни тръби (45°, 72°, 90°)</h3>
-            <div>
-                <label for="angle_pipe_45">Кривка 45°</label>
-                <input type="number" name="angle_pipe_45" min="0" value="0">
-            </div>
-            <div>
-                <label for="angle_pipe_72">Кривка 72°</label>
-                <input type="number" name="angle_pipe_72" min="0" value="0">
-            </div>
-            <div>
-                <label for="angle_pipe_90">Кривка 90°</label>
-                <input type="number" name="angle_pipe_90" min="0" value="0">
-            </div>
-        {% endif %}
+    <div>
+        <label for="{{ form.length_m.id_for_label }}">Дължина (в метри):</label>
+        {{ form.length_m }}
+    </div>
 
-        <br>
-        <button type="submit">Поръчай</button>
-    </form>
+    <hr>
+
+    <h3>Ъгли:</h3>
+    <div id="angles-container">
+    </div>
+
+    <hr>
+
+    <button type="submit">Изпрати</button>
+</form>
+
+<script>
+    const angleOptions = {
+        gutter: [
+            ['gutter_inner_90', 'Вътрешен ъгъл 90°'],
+            ['gutter_outer_90', 'Външен ъгъл 90°']
+        ],
+        pipe: [
+            ['pipe_45', 'Кривка 45°'],
+            ['pipe_72', 'Кривка 72°'],
+            ['pipe_90', 'Кривка 90°']
+        ]
+    };
+
+    function updateRALVisibility() {
+        const colourType = document.getElementById("id_colour_type");
+        const ralContainer = document.getElementById("ral-code-container");
+        if (colourType.value === "RAL") {
+            ralContainer.style.display = "block";
+        } else {
+            ralContainer.style.display = "none";
+            document.getElementById("id_ral_code").value = "";
+        }
+    }
+
+    function updateAngles() {
+        const isGutter = document.getElementById("id_is_gutter").value === "True";
+        const container = document.getElementById("angles-container");
+
+        container.innerHTML = "";
+
+        const selectedAngles = isGutter ? angleOptions.gutter : angleOptions.pipe;
+
+        selectedAngles.forEach((angle, index) => {
+            const [angleType, label] = angle;
+
+            const div = document.createElement("div");
+
+            const hiddenInput = document.createElement("input");
+            hiddenInput.type = "hidden";
+            hiddenInput.name = `angle_${index + 1}_type`;
+            hiddenInput.value = angleType;
+
+            const quantityInput = document.createElement("input");
+            quantityInput.type = "number";
+            quantityInput.name = `angle_${index + 1}_quantity`;
+            quantityInput.min = 0;
+            quantityInput.value = 0;
+
+            const labelEl = document.createElement("label");
+            labelEl.innerText = label + ": ";
+            labelEl.appendChild(quantityInput);
+
+            div.appendChild(hiddenInput);
+            div.appendChild(labelEl);
+
+            container.appendChild(div);
+        });
+    }
+
+    function updateSizeOptions() {
+        const isGutter = document.getElementById("id_is_gutter").value === "True";
+        const sizeSelect = document.getElementById("id_size");
+
+        sizeSelect.innerHTML = "";
+        
+        if (isGutter) {
+            addOption(sizeSelect, "5", '5"');
+            addOption(sizeSelect, "6", '6"');
+        } else {
+            addOption(sizeSelect, "80", 'Ф80');
+            addOption(sizeSelect, "100", 'Ф100');
+        }
+    }
+
+    function addOption(selectElement, value, text) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.text = text;
+        selectElement.appendChild(option);
+    }
+
+    document.getElementById("id_colour_type").addEventListener("change", updateRALVisibility);
+    document.getElementById("id_is_gutter").addEventListener("change", function() {
+        updateAngles();
+        updateSizeOptions();
+    });
+
+    updateRALVisibility();
+    updateAngles();
+    updateSizeOptions();
+</script>
 </body>
 </html>

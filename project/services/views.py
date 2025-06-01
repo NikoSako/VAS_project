@@ -30,19 +30,21 @@ def create_order(request):
 
             order.angles.all().delete()
 
-            for i in range(1, 4):
-                angle_type = request.POST.get(f'angle_{i}_type')
-                angle_quantity = request.POST.get(f'angle_{i}_quantity')
-                if angle_type and angle_quantity and int(angle_quantity) > 0:
-                    Angle.objects.create(order = order, type = angle_type, quantity = int(angle_quantity))
+            for key in request.POST:
+                if key.startswith("angle_"):
+                    quantity = int(request.POST.get(key) or 0)
+                    if quantity > 0:
+                        angle_type = key.replace("angle_", "")
+                        Angle.objects.create(order=order, type=angle_type, quantity=quantity)
+                        
             return redirect('service_details', order_id = order.id)
     else:
         form = order_form()
 
     angles_for_display = []
     if request.method == 'POST':
-        is_gutter = request.POST.get('is_gutter')
-        if is_gutter == 'True':
+        is_gutter_1 = request.POST.get('is_gutter')
+        if is_gutter_1 == 'True':
             angles_for_display = [
                 ('gutter_inner_90', 'Вътрешен ъгъл 90°'),
                 ('gutter_outer_90', 'Външен ъгъл 90°'),
@@ -58,8 +60,10 @@ def create_order(request):
             ('gutter_inner_90', 'Вътрешен ъгъл 90°'),
             ('gutter_outer_90', 'Външен ъгъл 90°'),
         ]
+    
+    is_gutter = form['is_gutter'].value() == 'True' if form['is_gutter'].value() else True
 
-    return render(request, 'service.html', {'form': form, 'angles': angles_for_display})
+    return render(request, 'service.html', {'form': form, 'is_gutter': is_gutter, 'angles': angles_for_display})
 
 @login_required
 def service_details(request, order_id):
