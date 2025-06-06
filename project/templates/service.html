@@ -6,7 +6,7 @@
 <body>
 <h2>Заяви услуга</h2>
 
-<form method="post" id="order-form">
+<form method="post" id="order-form" action="{% url 'preview_order' %}">
     {% csrf_token %}
 
     <div>
@@ -21,8 +21,7 @@
         {{ form.colour_type }}
     </div>
 
-    <div>
-        <div id="ral-code-container" style="display:none;"></div>
+    <div id="ral-code-container">
         <label for="{{ form.ral_code.id_for_label }}">RAL код:</label>
         {{ form.ral_code }}
     </div>
@@ -75,24 +74,16 @@
     function updateAngles() {
         const isGutter = document.getElementById("id_is_gutter").value === "True";
         const container = document.getElementById("angles-container");
-
         container.innerHTML = "";
 
         const selectedAngles = isGutter ? angleOptions.gutter : angleOptions.pipe;
 
-        selectedAngles.forEach((angle, index) => {
-            const [angleType, label] = angle;
-
+        selectedAngles.forEach(([angleType, label]) => {
             const div = document.createElement("div");
-
-            const hiddenInput = document.createElement("input");
-            hiddenInput.type = "hidden";
-            hiddenInput.name = `angle_${index + 1}_type`;
-            hiddenInput.value = angleType;
 
             const quantityInput = document.createElement("input");
             quantityInput.type = "number";
-            quantityInput.name = `angle_${index + 1}_quantity`;
+            quantityInput.name = `angle_${angleType}_quantity`;
             quantityInput.min = 0;
             quantityInput.value = 0;
 
@@ -100,7 +91,6 @@
             labelEl.innerText = label + ": ";
             labelEl.appendChild(quantityInput);
 
-            div.appendChild(hiddenInput);
             div.appendChild(labelEl);
 
             container.appendChild(div);
@@ -113,24 +103,20 @@
 
         sizeSelect.innerHTML = "";
         
-        if (isGutter) {
-            addOption(sizeSelect, "5", '5"');
-            addOption(sizeSelect, "6", '6"');
-        } else {
-            addOption(sizeSelect, "80", 'Ф80');
-            addOption(sizeSelect, "100", 'Ф100');
-        }
-    }
+        const options = isGutter
+            ? [["5", '5"'], ["6", '6"']]
+            : [["80", 'ф80'], ["100", 'ф100']];
 
-    function addOption(selectElement, value, text) {
-        const option = document.createElement("option");
-        option.value = value;
-        option.text = text;
-        selectElement.appendChild(option);
+        options.forEach(([val, text]) => {
+            const opt = document.createElement("option");
+            opt.value = val;
+            opt.textContent = text;
+            sizeSelect.appendChild(opt);
+        });
     }
 
     document.getElementById("id_colour_type").addEventListener("change", updateRALVisibility);
-    document.getElementById("id_is_gutter").addEventListener("change", function() {
+    document.getElementById("id_is_gutter").addEventListener("change", () => {
         updateAngles();
         updateSizeOptions();
     });

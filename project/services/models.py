@@ -43,7 +43,7 @@ class Order(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     is_gutter = models.BooleanField()
     colour_type = models.CharField(max_length=20, choices=ALUMINIUM_COLOURS)
-    ral_code = models.CharField(max_length=10, blank=True, null=False)
+    ral_code = models.CharField(max_length=10, blank=True, null=True)
     size = models.CharField(max_length=10)
     length_m = models.FloatField()
     start_date = models.DateField()
@@ -51,7 +51,7 @@ class Order(models.Model):
     total_price = models.FloatField()
 
     def __str__(self):
-        return f"Поръчка на {self.user.username} от {self.created_on.date}"
+        return f"Поръчка на {self.user.username} от {self.created_on.date()}"
     
 class Angle(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="angles")

@@ -4,11 +4,15 @@ from datetime import date, timedelta
 from .forms import order_form
 from .models import Order, Angle
 from django.db.models import Max
+from django.views.decorators.http import require_POST
 
 WORKDAYS = [0, 1, 2, 3, 4, 5]
 
+
 def next_available_date():
-    last_order = Order.objects.aggregate(Max('end_date'))['end_date_max']
+    result = Order.objects.aggregate(latest_end=Max('end_date'))
+    last_order = result['latest_end']
+    
     start = date(2025, 7, 1) if not last_order else last_order + timedelta(days=1)
 
     workdays = []
@@ -16,6 +20,7 @@ def next_available_date():
         if start.weekday() in WORKDAYS:
             workdays.append(start)
         start += timedelta(days=1)
+
     return workdays[0], workdays[-1]
 
 def create_order(request):
@@ -31,37 +36,25 @@ def create_order(request):
             order.angles.all().delete()
 
             for key in request.POST:
-                if key.startswith("angle_"):
-                    quantity = int(request.POST.get(key) or 0)
+                if key.startswith("angle_") and key.endswith("_quantity"):
+                    angle_type = key.replace("_quantity", "").replace("angle", "")
+                    quantity = int(request.POST.get(key))
                     if quantity > 0:
-                        angle_type = key.replace("angle_", "")
                         Angle.objects.create(order=order, type=angle_type, quantity=quantity)
                         
             return redirect('service_details', order_id = order.id)
     else:
         form = order_form()
 
-    angles_for_display = []
-    if request.method == 'POST':
-        is_gutter_1 = request.POST.get('is_gutter')
-        if is_gutter_1 == 'True':
-            angles_for_display = [
-                ('gutter_inner_90', 'Вътрешен ъгъл 90°'),
-                ('gutter_outer_90', 'Външен ъгъл 90°'),
-            ]
-        else:
-            angles_for_display = [
+    is_gutter = form['is_gutter'].value() == 'True' if form['is_gutter'].value() else True
+    angles_for_display = [
+        ('gutter_inner_90', 'Вътрешен ъгъл 90°'),
+        ('gutter_outer_90', 'Външен ъгъл 90°'),
+    ]if is_gutter else [
                 ('pipe_45', 'Кривка 45°'),
                 ('pipe_72', 'Кривка 72°'),
                 ('pipe_90', 'Кривка 90°'),
             ]
-    else:
-        angles_for_display = [
-            ('gutter_inner_90', 'Вътрешен ъгъл 90°'),
-            ('gutter_outer_90', 'Външен ъгъл 90°'),
-        ]
-    
-    is_gutter = form['is_gutter'].value() == 'True' if form['is_gutter'].value() else True
 
     return render(request, 'service.html', {'form': form, 'is_gutter': is_gutter, 'angles': angles_for_display})
 
@@ -80,7 +73,7 @@ def extract_angles(post_data):
     ]
     angles = {}
     for key in angle_keys:
-        quantity = post_data.get(f'angle_{key}')
+        quantity = post_data.get(f'angle_{key}_quantity')
         try:
             quantity = int(quantity)
         except (TypeError, ValueError):
@@ -109,9 +102,7 @@ def calculate_price(order, post_data):
     else:
         key = 'тръби'
 
-    colour = order.colour_type
-
-    base = base_price[key][colour][order.size]
+    base = base_price[key][order.colour_type][order.size]
     price = order.length_m * base
 
     if order.is_gutter:
@@ -134,9 +125,50 @@ def calculate_price(order, post_data):
     for angle_type, quantity in angles.items():
         if quantity == 0:
             continue
-        if angle_type.startswith('gutter'):
-            price += quantity * 15.30
-        else:
-            price += quantity * 4.80
+        price += quantity * (15.30 if angle_type.startswith('gutter') else 4.80)
 
     return round(price, 2)
+
+@require_POST
+def preview_order(request):
+    form = order_form(request.POST)
+    if form.is_valid():
+        order = form.save(commit=False)
+        order.user = request.user
+        start, end = next_available_date()
+        order.start_date, order.end_date = start, end
+        total_price = calculate_price(order, request.POST)
+        angles = extract_angles(request.POST)
+
+        request.session['order_data'] = request.POST
+        return render(request, 'preview_order.html', {
+            'form': form,
+            'order': order,
+            'angles': angles,
+            'total_price': total_price,
+        })
+    return redirect('create_order')
+
+@require_POST
+def confirm_order(request):
+    post_data = request.session.get('order_data')
+    if not post_data:
+        return redirect('create_order')
+    
+    form = order_form(post_data)
+    if form.is_valid():
+        order = form.save(commit=False)
+        order.user = request.user
+        order.start_date, order.end_date = next_available_date()
+        order.total_price = calculate_price(order, post_data)
+        order.save()
+
+        angles = extract_angles(post_data)
+        for angle_type, quantity in angles.items():
+            if quantity > 0:
+                Angle.objects.create(order=order, type=angle_type, quantity=quantity)
+
+        del request.session['order_data']
+        return redirect('service_details', order_id=order.id)
+    
+    return redirect('create_order')

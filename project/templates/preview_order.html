@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Преглед на поръчка</title>
+</head>
+<body>
+    <h2>Преглед на поръчката</h2>
+
+    <p><strong>Продукт:</strong> {{ order.get_is_gutter_display }}</p>
+    <p><strong>Тип алуминий:</strong> {{ order.colour_type }}</p>
+    {% if order.colour_type == 'RAL' %}
+        <p><strong>RAL код:</strong> {{ form.cleaned_data.ral_code }}</p>
+    {% endif %}
+    <p><strong>Размер:</strong> {{ order.size }}</p>
+    <p><strong>Дължина:</strong> {{ order.length_m }} метра</p>
+
+    <h3>Ъгли:</h3>
+    <ul>
+        {% for key, quantity in angles.items %}
+            {% if quantity > 0 %}
+                <li>{{ key }}: {{ quantity }} бр.</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+
+    <p><strong>Начална дата:</strong> {{ order.start_date }}</p>
+    <p><strong>Крайна дата:</strong> {{ order.end_date }}</p>
+    <p><strong>Обща цена:</strong> {{ total_price }} лв.</p>
+
+    <form method="post" action="{% url 'confirm_order' %}">
+        {% csrf_token %}
+        <button type="submit">Потвърди поръчката</button>
+    </form>
+
+    <form method="get" action="{% url 'create_order' %}">
+        <button type="submit">Назад</button>
+    </form>
+</body>
+</html>
