@@ -8,6 +8,23 @@ from django.views.decorators.http import require_POST
 
 WORKDAYS = [0, 1, 2, 3, 4, 5]
 
+BG_MONTHS = {
+    'January': 'януари', 'February': 'февруари', 'March': 'март', 'April': 'април',
+    'May': 'май', 'June': 'юни', 'July': 'юли', 'August': 'август',
+    'September': 'септември', 'October': 'октомври', 'November': 'ноември', 'December': 'декември'
+}
+BG_DAYS = {
+    'Monday': 'Понеделник', 'Tuesday': 'Вторник', 'Wednesday': 'Сряда', 'Thursday': 'Четвъртък',
+    'Friday': 'Петък', 'Saturday': 'Събота', 'Sunday': 'Неделя'
+}
+
+def format_date_bg(d):
+    formatted = d.strftime("%A, %d %B %Y")
+    for en, bg in BG_MONTHS.items():
+        formatted = formatted.replace(en, bg)
+    for en, bg in BG_DAYS.items():
+        formatted = formatted.replace(en, bg)
+    return formatted
 
 def next_available_date():
     result = Order.objects.aggregate(latest_end=Max('end_date'))
@@ -31,7 +48,10 @@ def create_order(request):
             order.user = request.user
             order.start_date, order.end_date = next_available_date()
             order.total_price = calculate_price(order, request.POST)
+            order.size = form.cleaned_data['size']
+            order.length_m = form.cleaned_data['length_m']
             order.save()
+            print(f"DEBUG: Order saved - ID: {order.id}")
 
             order.angles.all().delete()
 
@@ -60,8 +80,25 @@ def create_order(request):
 
 @login_required
 def service_details(request, order_id):
-    order = get_object_or_404(Order, id = order_id, user = request.user)
-    return render(request, 'service_details.html', {'order': order})
+    order = get_object_or_404(Order, id=order_id)
+    if not request.user.is_superuser and order.user != request.user:
+        return redirect('dashboard')
+    angles = Angle.objects.filter(order=order)
+    return render(request, 'service_details.html', {
+        'order': order,
+        'angles': angles,
+    })
+
+@login_required
+def dashboard(request):
+    if request.user.is_superuser:
+        orders = Order.objects.all().order_by('-id')
+    else:
+        orders = Order.objects.filter(user=request.user).order_by('-id')
+    for order in orders:
+        order.start_date_bg = format_date_bg(order.start_date)
+        order.end_date_bg = format_date_bg(order.end_date)
+    return render(request, 'dashboard.html', {'orders': orders})
 
 def extract_angles(post_data):
     angle_keys = [
@@ -133,6 +170,7 @@ def calculate_price(order, post_data):
 def preview_order(request):
     form = order_form(request.POST)
     if form.is_valid():
+        request.session['order_data'] = request.POST.copy()
         order = form.save(commit=False)
         order.user = request.user
         start, end = next_available_date()
@@ -144,15 +182,27 @@ def preview_order(request):
         return render(request, 'preview_order.html', {
             'form': form,
             'order': order,
-            'angles': angles,
+            'size': request.POST.get('size'),
+            'length_m': request.POST.get('length_m'),
+            'angles': {
+                'Вътрешен ъгъл 90°': angles['gutter_inner_90'],
+                'Външен ъгъл 90°': angles['gutter_outer_90'],
+                'Кривка 45°': angles['pipe_45'],
+                'Кривка 72°': angles['pipe_72'],
+                'Кривка 90°': angles['pipe_90'],
+            },
             'total_price': total_price,
+            'start_date_bg': format_date_bg(start),
+            'end_date_bg': format_date_bg(end),
         })
     return redirect('create_order')
 
 @require_POST
+@login_required
 def confirm_order(request):
     post_data = request.session.get('order_data')
     if not post_data:
+        print("DEBUG: order_data not found in session")
         return redirect('create_order')
     
     form = order_form(post_data)
@@ -162,6 +212,9 @@ def confirm_order(request):
         order.start_date, order.end_date = next_available_date()
         order.total_price = calculate_price(order, post_data)
         order.save()
+        print(f"DEBUG: Order saved - ID: {order.id}")
+
+        Angle.objects.filter(order=order).delete()
 
         angles = extract_angles(post_data)
         for angle_type, quantity in angles.items():
@@ -171,4 +224,4 @@ def confirm_order(request):
         del request.session['order_data']
         return redirect('service_details', order_id=order.id)
     
-    return redirect('create_order')
+    return redirect('dashboard')

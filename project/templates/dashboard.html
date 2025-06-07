@@ -8,14 +8,19 @@
     <p><a href="{% url 'logout' %}">Изход</a></p>
 
     <h2>Твоите поръчки</h2>
-    {% if order %}
+    {% if orders %}
         <ul>
             {% for order in orders %}
-                <li><a href="{% url 'service_details' order.id %}">Поръчка №{{ order.id }} от {{ order.date_created }}</a></li>
+                <li>
+                    <a href="{% url 'service_details' order.id %}">Поръчка №{{ order.id }}</a> - 
+                    {% if order.is_gutter %}Улуци{% else %}Водосточни тръби{% endif %} -
+                    {{ order.start_date }} → {{ order.end_date }} -
+                    {{ order.total_price }} лв
+                </li>
             {% endfor %}
         </ul>
     {% else %}
-        <p>Няма намерени поръчки</p>
+        <p>Няма направени поръчки.</p>
     {% endif %}
 
     <p><a href="{% url 'create_order' %}">Направи нова поръчка</a></p>

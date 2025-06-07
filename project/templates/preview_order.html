@@ -6,25 +6,31 @@
 <body>
     <h2>Преглед на поръчката</h2>
 
-    <p><strong>Продукт:</strong> {{ order.get_is_gutter_display }}</p>
-    <p><strong>Тип алуминий:</strong> {{ order.colour_type }}</p>
-    {% if order.colour_type == 'RAL' %}
-        <p><strong>RAL код:</strong> {{ form.cleaned_data.ral_code }}</p>
-    {% endif %}
+    <p><strong>Продукт:</strong>
+        {% if order.is_gutter %} Улуци {% else %} Водосточни тръби {% endif %}
+    </p>
+
+    <p><strong>Тип алуминий:</strong>
+        {{ form.cleaned_data.colour_type }}
+        {% if form.cleaned_data.colour_type == 'RAL' %}
+            - {{ form.cleaned_data.ral_code }}
+        {% endif %}
+    </p>
+
     <p><strong>Размер:</strong> {{ order.size }}</p>
     <p><strong>Дължина:</strong> {{ order.length_m }} метра</p>
 
     <h3>Ъгли:</h3>
     <ul>
-        {% for key, quantity in angles.items %}
+        {% for name, quantity in angles.items %}
             {% if quantity > 0 %}
-                <li>{{ key }}: {{ quantity }} бр.</li>
+                <li>{{ name }}: {{ quantity }} бр.</li>
             {% endif %}
         {% endfor %}
     </ul>
 
-    <p><strong>Начална дата:</strong> {{ order.start_date }}</p>
-    <p><strong>Крайна дата:</strong> {{ order.end_date }}</p>
+    <p><strong>Начална дата:</strong> {{ start_date_bg }}</p>
+    <p><strong>Крайна дата:</strong> {{ end_date_bg }}</p>
     <p><strong>Обща цена:</strong> {{ total_price }} лв.</p>
 
     <form method="post" action="{% url 'confirm_order' %}">
