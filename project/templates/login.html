@@ -1,22 +1,27 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Login - VAS PRO</title>
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
 </head>
 <body>
-    <h1>Вход в VAS PRO</h1>
-    {% if messages %}
-        {% for message in messages %}
-            <p style = "color: red;">{{ message }}</p>
-        {% endfor %}
-    {% endif %}
+    <div class="container">
+        <h1>Вход в VAS PRO</h1>
+        {% if messages %}
+            {% for message in messages %}
+                <p class="message">{{ message }}</p>
+            {% endfor %}
+        {% endif %}
 
-    <form method="POST">
-        {% csrf_token %}
-        <input type="email" name="email" placeholder="Имейл" required>
-        <input type="password" name="password" placeholder="Парола" required>
-        <button type="submit">Вход</button>
-    </form>
-    <p>Нямаш акаунт? <a href="{% url 'signup' %}">Регистрация</a></p>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="email" name="email" placeholder="Имейл" required>
+            <input type="password" name="password" placeholder="Парола" required>
+            <button type="submit">Вход</button>
+        </form>
+        <p>Нямаш акаунт? <a href="{% url 'signup' %}">Регистрация</a></p>
+    </div>
 </body>
 </html>

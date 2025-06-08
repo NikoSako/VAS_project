@@ -1,53 +1,57 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
     <title>Order Details - VAS PRO</title>
+    <link rel="stylesheet" href="{% static 'css/service_details.css' %}">
 </head>
 <body>
-    <h2>Детайли за поръчката</h2>
+    <div class="container">
+        <h2>Детайли за поръчката</h2>
 
-    {% if order %}
-        <ul>
-            <li><strong>Тип продукт:</strong> {% if order.is_gutter %} Улуци {% else %} Тръби {% endif %}</li>
+        {% if order %}
+            <ul>
+                <li><strong>Тип продукт:</strong> {% if order.is_gutter %} Улуци {% else %} Тръби {% endif %}</li>
+                
+                <li><strong>Цвят:</strong>
+                    {% if order.colour_type == 'RAL' %}
+                        {{ order.colour_type }} - {{ order.ral_code }}
+                    {% else %}
+                        {{ order.colour_type }}
+                    {% endif %}
+                </li>
 
-            <li><strong>Цвят:</strong>
-                {% if order.colour_type == 'RAL' %}
-                    {{ order.colour_type }} - {{ order.ral_code }}
-                {% else %}
-                    {{ order.colour_type }}
-                {% endif %}
-            </li>
+                <li><strong>Размер:</strong> {{ order.size }}</li>
+                <li><strong>Дължина:</strong> {{ order.length_m }} м</li>
+                <li><strong>Скоби:</strong>
+                    {% if order.is_gutter %}
+                        {{ order.length_m|floatformat:0|add:order.length_m|floatformat:0 }} бр.
+                    {% else %}
+                        {{ order.length_m|floatformat:0 }} бр.
+                    {% endif %}
+                </li>
 
-            <li><strong>Размер:</strong> {{ order.size }}</li>
-            <li><strong>Дължина:</strong> {{ order.length_m }} м</li>
-            <li><strong>Скоби:</strong>
-                {% if order.is_gutter %}
-                    {{ order.length_m|floatformat:0|add:order.length_m|floatformat:0 }} бр.
-                {% else %}
-                    {{ order.length_m|floatformat:0 }} бр.
-                {% endif %}
-            </li>
+                <li><strong>Ъгли:</strong>
+                    {% if angles %}
+                        <ul>
+                            {% for angle in angles %}
+                                <li>{{ angle.get_type_display }} — {{ angle.quantity }} бр.</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        Няма добавени ъгли
+                    {% endif %}
+                </li>
 
-            <li><strong>Ъгли:</strong>
-                {% if angles %}
-                    <ul>
-                        {% for angle in angles %}
-                            <li>{{ angle.get_type_display }} — {{ angle.quantity }} бр.</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    Няма добавени ъгли
-                {% endif %}
-            </li>
+                <li><strong>Обща цена:</strong> {{ order.total_price }} лв</li>
+                <li><strong>Начална дата на услугата:</strong> {{ order.start_date }}</li>
+                <li><strong>Крайна дата на услугата:</strong> {{ order.end_date }}</li>
+            </ul>
+        {% else %}
+            <p>Поръчката не е намерена.</p>
+        {% endif %}
 
-            <li><strong>Обща цена:</strong> {{ order.total_price }} лв</li>
-            <li><strong>Начална дата на услугата:</strong> {{ order.start_date }}</li>
-            <li><strong>Крайна дата на услугата:</strong> {{ order.end_date }}</li>
-        </ul>
-    {% else %}
-        <p>Поръчката не е намерена.</p>
-    {% endif %}
-
-    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Назад към моите поръчки</a>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">Назад към моите поръчки</a>
+    </div>
 </body>
 </html>
