@@ -21,7 +21,13 @@
                     {% endif %}
                 </li>
 
-                <li><strong>Размер:</strong> {{ order.size }}</li>
+                <li><strong>Размер:</strong>
+                    {% if order.service_type == 'gutter' %}
+                        {{ order.size }}"
+                    {% else %}
+                        ф{{ order.size }}
+                    {% endif %}
+                </li>
                 <li><strong>Дължина:</strong> {{ order.length_m }} м</li>
                 <li><strong>Скоби:</strong>
                     {% if order.is_gutter %}
@@ -44,8 +50,8 @@
                 </li>
 
                 <li><strong>Обща цена:</strong> {{ order.total_price }} лв</li>
-                <li><strong>Начална дата на услугата:</strong> {{ order.start_date }}</li>
-                <li><strong>Крайна дата на услугата:</strong> {{ order.end_date }}</li>
+                <li><strong>Начална дата на услугата:</strong> {{ start_date_bg }}</li>
+                <li><strong>Крайна дата на услугата:</strong> {{ end_date_bg }}</li>
             </ul>
         {% else %}
             <p>Поръчката не е намерена.</p>

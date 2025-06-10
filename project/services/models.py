@@ -39,6 +39,16 @@ CORNER_TYPES = [
 ]
 
 class Order(models.Model):
+    SERVICE_TYPE_CHOICES = [
+    ('gutter', 'Улуци'),
+    ('pipe', 'Водосточни тръби'),
+    ]
+
+    service_type = models.CharField(
+        max_length=10,
+        choices=SERVICE_TYPE_CHOICES,
+        default='gutter'
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created_on = models.DateTimeField(auto_now_add=True)
     is_gutter = models.BooleanField()
@@ -49,6 +59,11 @@ class Order(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     total_price = models.FloatField()
+    def display_size(self):
+        if self.service_type == 'gutter':
+            return f'{self.size}"'
+        else:
+            return f'ф{self.size}'
 
     def __str__(self):
         return f"Поръчка на {self.user.username} от {self.created_on.date()}"

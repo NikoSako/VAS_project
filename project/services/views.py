@@ -5,6 +5,14 @@ from .forms import order_form
 from .models import Order, Angle
 from django.db.models import Max
 from django.views.decorators.http import require_POST
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from django.core.exceptions import ObjectDoesNotExist
+from .serializers import OrderSerializer
+import locale
+from datetime import date
 
 WORKDAYS = [0, 1, 2, 3, 4, 5]
 
@@ -19,6 +27,10 @@ BG_DAYS = {
 }
 
 def format_date_bg(d):
+    try:
+        locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
+    except locale.Error:
+        locale.setlocale(locale.LC_TIME, 'C')
     formatted = d.strftime("%A, %d %B %Y")
     for en, bg in BG_MONTHS.items():
         formatted = formatted.replace(en, bg)
@@ -51,7 +63,6 @@ def create_order(request):
             order.size = form.cleaned_data['size']
             order.length_m = form.cleaned_data['length_m']
             order.save()
-            print(f"DEBUG: Order saved - ID: {order.id}")
 
             order.angles.all().delete()
 
@@ -83,10 +94,17 @@ def service_details(request, order_id):
     order = get_object_or_404(Order, id=order_id)
     if not request.user.is_superuser and order.user != request.user:
         return redirect('dashboard')
+
     angles = Angle.objects.filter(order=order)
+
+    start_date_bg = format_date_bg(order.start_date) if order.start_date else ''
+    end_date_bg = format_date_bg(order.end_date) if order.end_date else ''
+
     return render(request, 'service_details.html', {
         'order': order,
         'angles': angles,
+        'start_date_bg': start_date_bg,
+        'end_date_bg': end_date_bg,
     })
 
 @login_required
@@ -95,9 +113,12 @@ def dashboard(request):
         orders = Order.objects.all().order_by('-id')
     else:
         orders = Order.objects.filter(user=request.user).order_by('-id')
+
+    print(f"DEBUG dashboard: fetched {orders.count()} order(s) for user {request.user}")
     for order in orders:
         order.start_date_bg = format_date_bg(order.start_date)
         order.end_date_bg = format_date_bg(order.end_date)
+
     return render(request, 'dashboard.html', {'orders': orders})
 
 def extract_angles(post_data):
@@ -170,26 +191,40 @@ def calculate_price(order, post_data):
 def preview_order(request):
     form = order_form(request.POST)
     if form.is_valid():
-        request.session['order_data'] = request.POST.copy()
+        order_data = request.POST.copy()
+        request.session['order_data'] = order_data
+
         order = form.save(commit=False)
         order.user = request.user
         start, end = next_available_date()
         order.start_date, order.end_date = start, end
-        total_price = calculate_price(order, request.POST)
-        angles = extract_angles(request.POST)
 
-        request.session['order_data'] = request.POST
+        total_price = calculate_price(order, order_data)
+
+        angles = extract_angles(order_data)
+
+        try:
+            length = float(order_data.get('length_m', 0))
+        except (TypeError, ValueError):
+            length = 0
+
+        if order.service_type == 'gutter':
+            bracket_count = int(length * 2)
+        else:
+            bracket_count = int(length)
+
         return render(request, 'preview_order.html', {
             'form': form,
             'order': order,
-            'size': request.POST.get('size'),
-            'length_m': request.POST.get('length_m'),
+            'size': order_data.get('size'),
+            'length_m': order_data.get('length_m'),
+            'bracket_count': bracket_count,
             'angles': {
-                'Вътрешен ъгъл 90°': angles['gutter_inner_90'],
-                'Външен ъгъл 90°': angles['gutter_outer_90'],
-                'Кривка 45°': angles['pipe_45'],
-                'Кривка 72°': angles['pipe_72'],
-                'Кривка 90°': angles['pipe_90'],
+                'Вътрешен ъгъл 90°': angles.get('gutter_inner_90', 0),
+                'Външен ъгъл 90°': angles.get('gutter_outer_90', 0),
+                'Кривка 45°': angles.get('pipe_45', 0),
+                'Кривка 72°': angles.get('pipe_72', 0),
+                'Кривка 90°': angles.get('pipe_90', 0),
             },
             'total_price': total_price,
             'start_date_bg': format_date_bg(start),
@@ -225,3 +260,91 @@ def confirm_order(request):
         return redirect('service_details', order_id=order.id)
     
     return redirect('dashboard')
+
+@api_view(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def order_api(request, order_id=None):
+    if request.method == 'GET':
+        if order_id:
+            try:
+                order = Order.objects.get(id=order_id)
+                if not request.user.is_superuser and order.user != request.user:
+                    return Response(
+                        {"error": "Нямате достъп до тази поръчка"},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                serializer = OrderSerializer(order)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except:
+                return Response(
+                    {"error": "Поръчката не е намерена"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            if request.user.is_superuser:
+                orders = Order.objects.all()
+            else:
+                orders = Order.objects.filter(user=request.user)
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    elif request.method == 'POST':
+        serializer = OrderSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        if not order_id:
+            return Response(
+                {"error": "Изисква се ID на поръчка"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            order = Order.objects.get(id=order_id)
+            if not request.user.is_superuser and order.user != request.user:
+                return Response(
+                    {"error": "Нямате достъп до тази поръчка"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            serializer = OrderSerializer(
+                order,
+                data=request.data,
+                partial=request.method == 'PATCH'
+            )
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        except ObjectDoesNotExist:
+            return Response(
+                {"error": "Поръчката не е намерена"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+    elif request.method == 'DELETE':
+        if not order_id:
+            return Response(
+                {"error": "Изисква се ID на поръчка"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            order = Order.objects.get(id=order_id)
+            if not request.user.is_superuser and order.user != request.user:
+                return Response(
+                    {"error": "Нямате достъп до тази поръчка"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            order.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        except ObjectDoesNotExist:
+            return Response(
+                {"error": "ПОръчката не е намерена"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
